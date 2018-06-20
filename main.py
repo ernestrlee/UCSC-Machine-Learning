@@ -12,11 +12,101 @@ excelfile=r"C:\Users\MKC\Documents\UCSC training\Machine Learning\Team project\c
 sheets=getSheetNames(excelfile)
 #print(sheets)
 
+# TODO need to confirm this function
+# This function calculates the PDF of a multinormal distribution
+# X - the data set
+# N - the number of samples
+# sigma - the covariance matrix
+# mu - the mean vector
+# d - the number of dimensions (features)
+def calculatePDF(X, N, sigma, mu, d):    
+    e = math.e
+    pi = math.pi    
+    sigmaDeterminant = np.linalg.det(sigma)
+    #print("det: " + str(sigmaDeterminant))
+    inverseSigma = np.linalg.inv(sigma)
+    #print("inv: " + str(inverseSigma))
+    z = X - mu
+    #print("z: " + str(z))    
+    scalar1 = np.dot(z, inverseSigma)
+    #print("scalar")
+    scalar2 = np.dot(scalar1, z.T)
+    #print("scalar: " + str(scalar2))
+    rightSide = e**(-1/2 * scalar2)
+    #print("right: " + str(rightSide))
+    leftSide = 1 / (((2 * pi)**(d/2)) * sigmaDeterminant**(1/2))
+    #print("left: " + str(leftSide))
+        
+    return N * (leftSide * rightSide)
+
+# TODO need to confirm this function
+# This function predicts the class label for one feature vector
+# betwen two classes using a Bayesian Classifier
+# (for data that is normally distributed)
+# X - The individual data set to classify
+# Np - Total number of positive samples
+# Cp - Covariance matrix of the positive samples
+# mup - Mean vector of the positive samples
+# CLp - Class label for the positive
+# Nn - Total number of negative samples
+# Cn - Covariance matrix of the negative samples
+# mun - Mean vector of the negative samples
+# CLn - Class label for the negative
+# returns classLabelType - Y for positive, N for negative
+# returns probability
+def getBayesian2ClassLabel(X, Np, Cp, mup, CLp, Nn, Cn, mun, CLn):
+    # Get the number of dimension of X
+    d = len(X)
+
+    # Calculate the PDF for the positive and negative data sets
+    pdfp = calculatePDF(X, Np, Cp, mup, d)
+    pdfn = calculatePDF(X, Nn, Cn, mun, d)
+
+    # Predict the class labels and compute the posterior probability
+    if pdfp > pdfn:
+        classLabel = CLp
+        probability = pdfp / (pdfp + pdfn)
+    elif pdfn > pdfp:
+        classLabel = CLn
+        probability = pdfn / (pdfn + pdfp)
+    else:
+        classLabel = "Indeterminant"
+        probability = "Nan"
+
+    return classLabel, probability
+
+# TODO need to confirm this function
+# This function computes the classification accuracy of a Bayesian
+# classifier for two classes
+# X - the testing data set
+# T - the class labels
+# V - the eigenvalues of the covariance matrix
+def getBayesianAccuracy(X, T, V):
+    correct = 0
+    incorrect = 0
+    mu = np.mean(X)
+
+    for i in range(len(X)):
+        x = X[i]
+        z = x - mu
+
+        P = np.dot(z, V.T)
+        BLabel = getBayesian2ClassLabel(P, Np, Cp, mup, "Y", Nn, Cn, mun, "N")
+                
+        if(BLabel[0] == T[i]):
+            correct = correct + 1
+        else:
+            incorrect = incorrect + 1
+
+    accuracy = correct / (correct + incorrect)
+    return accuracy
+
+# Get the image data
 X = np.array(createImageList(dataFiles))
 print(X)
 print(X.shape)
 
-# Separate training data and testing data
+# Separate data into training data and testing data
 Xtrain = X[:300]
 print("Xtrain")
 print(Xtrain)
@@ -26,6 +116,7 @@ print("Xtest")
 print(Xtest)
 print(Xtest.shape)
 
+# Get the class data
 T = readExcel(excelfile)
 print("T shape:")
 print(T.shape)
@@ -48,66 +139,51 @@ print("Testing good:")
 print(TtestGood)
 print(TtestGood.shape)
 
-# This function calculates the PDF of a multinormal distribution
-# x - the data set
-# numSamples - the number of samples
-# sigma - the covariance matrix
-# mu - the mean vector
-# dimensions - the number of features compared
-def calculatePDF(x, numSamples, sigma, mu, dimensions):    
-    sigmaDeterminant = np.linalg.det(sigma)
-    #print("det: " + str(sigmaDeterminant))
-    inverseSigma = np.linalg.inv(sigma)
-    #print("inv: " + str(inverseSigma))
-    z = x - mu
-    #print("z: " + str(z))    
-    scalar1 = np.dot(z, inverseSigma)
-    #print("scalar")
-    scalar2 = np.dot(scalar1, z.T)
-    #print("scalar: " + str(scalar2))
-    rightSide = math.e**(-1/2 * scalar2)
-    #print("right: " + str(rightSide))
-    leftSide = 1 / (((2 * math.pi)**(dimensions/2)) * sigmaDeterminant**(1/2))
-    #print("left: " + str(leftSide))
-        
-    return numSamples * (leftSide * rightSide)
+# Graph components vs explained variance
+pca = PCA().fit(Xtrain)
+plt.plot(np.cumsum(pca.explained_variance_ratio_))
+plt.xlabel('number of components')
+plt.ylabel('cumulative explained variance')
+plt.grid(True)
+plt.show()
 
-# This function finds the class label
-# classLabelType - boolean, true means positive class, false means negative class
-def getBayesianLabel(X, Y):
-    x = [X, Y]
-    pdfp = calculatePDF(x, Np, cp, mup, 2)
-    pdfn = calculatePDF(x, Nn, cn, mun, 2)
+# Get the mean of the training data
+mu_train = np.mean(Xtrain)
+print("Mean of training data, mu_train")
+print(mu_train)
+print(mu_train.shape)
 
-    if pdfp > pdfn:
-        classLabel = "Y"
-        probability = pdfp / (pdfp + pdfn)
-    elif pdfn > pdfp:
-        classLabel = "N"
-        probability = pdfn / (pdfn + pdfp)
-    else:
-        classLabel = "Indeterminant"
-        probability = "Nan"
+# Get the centered data
+z_train = Xtrain - mu_train
+print("Centered training data, z:")
+print(z_train)
+print(z_train.shape)
 
-    return classLabel, probability
-
-# Using SKlearn to do PCA
+# Using SKlearn to do PCA with 2 components
 pca = PCA(n_components=2)
 pca.fit(Xtrain)
 
-principalComponents = pca.fit_transform(Xtrain)
-print("Principal components:")
-#print(principalComponents)
-print(principalComponents.shape)
+# Get the first two eigenvectors of the covariance matrix
+V12 = pca.components_
+print("First 2 eigenvectors, v12:")
+print(V12)
+print(V12.shape)
 
-p12 = principalComponents
+# Get the first two principal components
+p12 = pca.fit_transform(Xtrain)
+print("First 2 principal components, p12:")
+print(p12)
+print(p12.shape)
 
 # Draw a plot of the data
 plt.scatter(p12[:, 0], p12[:, 1])
 plt.show()
-drawScatter(p12, TtrainGood, "N", "Y", "Scatter plot for classification of good picture(Green) or bad picture(Red)\n", "P1", "P2")
+drawScatter(p12, TtrainSmile, "N", "Y", "Scatter plot for classification of smiling picture(Green)\n or not smiling picture(Red)\n", "P1", "P2")
+drawScatter(p12, TtrainBlink, "N", "Y", "Scatter plot for classification of not blinking picture(Green)\n or blinking picture(Red)\n", "P1", "P2")
+drawScatter(p12, TtrainGood, "N", "Y", "Scatter plot for classification of good picture(Green)\n or bad picture(Red)\n", "P1", "P2")
 
-# Count total number of samples
+# Count total number of samples for the positive and negative
+# classes
 Nn = len(np.array(TtrainGood[TtrainGood=="N"]))
 Np = len(np.array(TtrainGood[TtrainGood=="Y"]))
 print("Nn:")
@@ -115,7 +191,8 @@ print(Nn)
 print("Np:")
 print(Np)
 
-# Create an array of the separated principal components
+# Create an array of the separated principal components for positive
+# and negative classes
 Pn = np.array(p12[TtrainGood=="N"])
 Pp = np.array(p12[TtrainGood=="Y"])
 print("Pn:")
@@ -125,7 +202,7 @@ print("Pp:")
 #print(Pp)
 print(Pp.shape)
 
-# Caculate the mean vector
+# Calculate the mean vector for positive and negative class
 mun = np.mean(Pn, axis=0)
 mup = np.mean(Pp, axis=0)
 print("Mu neg:")
@@ -135,10 +212,9 @@ print("Mu pos:")
 print(mup)
 print(mup.shape)
 
-# TODO - need to verify this calculation for covariance
-# Calcualte the covariance matrix
-Cn = np.cov(Pn[0], Pn[1])
-Cp = np.cov(Pp[0], Pp[1])
+# Calcualte the covariance matrix for positive and negative class
+Cn = np.cov(Pn, rowvar=False)
+Cp = np.cov(Pp, rowvar=False)
 print("Cn:")
 print(Cn)
 print(Cn.shape)
@@ -152,6 +228,8 @@ Xtestn = Xtest[TtestGood=="N"]
 print(Xtestp.shape)
 print(Xtestn.shape)
 
+mu_test = np.mean(Xtest)
+
 # Select random images from test data to display, 
 # one from positive class and one from negative class
 xp = Xtestp[8]
@@ -159,3 +237,28 @@ xn = Xtestn[8]
 # Display the images
 vectortoimg(xp)
 vectortoimg(xn)
+
+# TODO not correct needs confirmation
+""" mup = np.mean(xp)
+mun = np.mean(xn)
+
+zp = xp - mup
+pp = np.dot(zp, V12.T)
+rp = np.dot(pp, V12)
+xrecp = rp + mup
+
+zn = xn - mun
+pn = np.dot(zn, V12.T)
+rn = np.dot(pn, V12)
+xrecn = rn + mun """
+
+Xrec = pca.inverse_transform(p12)
+
+# Show image of the original and recovered images
+vectortoimg(Xtrain[12])
+vectortoimg(Xrec[12])
+
+
+bayesianAccuracy= getBayesianAccuracy(Xtestp, TtestGood, V12)
+print("Bayesian Accuracy:")
+print(bayesianAccuracy)
