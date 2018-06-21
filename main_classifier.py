@@ -64,7 +64,7 @@ print(TtestGood.shape)
 
 # Using SKlearn to do PCA
 # maximize variance
-pca = PCA(n_components=100,);
+pca = PCA(n_components=100);
 # dimensionality reduction
 XTrain_reduced = pca.fit_transform(Xtrain);
 
@@ -128,7 +128,7 @@ plt.figure(figsize=(20,4))
 for plotIndex, badIndex in enumerate(misclassifiedIndexes[0:5]):
     plt.subplot(1, 5, plotIndex + 1)
     plt.imshow(np.reshape(pca.components_[badIndex], (112,92)), cmap=plt.cm.gray)
-    plt.title('Predicted: {}, Actual: {}'.format(predictions[badIndex], TtestGood[badIndex]), fontsize = 15)
+    plt.title('Predicted: {}, Actual: {}'.format(predictions[badIndex], TtestGood[badIndex]), fontsize = 10)
 
 plt.show();
 
