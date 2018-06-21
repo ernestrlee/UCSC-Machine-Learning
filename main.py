@@ -12,88 +12,243 @@ excelfile=r"C:\Users\MKC\Documents\UCSC training\Machine Learning\Team project\c
 sheets=getSheetNames(excelfile)
 #print(sheets)
 
-# TODO need to confirm this function
-# This function calculates the PDF of a multinormal distribution
-# X - the data set
-# N - the number of samples
-# sigma - the covariance matrix
-# mu - the mean vector
-# d - the number of dimensions (features)
-def calculatePDF(X, N, sigma, mu, d):    
+def calculatePDF(x, sigma, mu):
+    """
+    This function calculates the probability density of a
+    multinormal distribution for a single feature vector.
+
+    Args:
+        x : array, the single data set
+        sigma : array, the covariance matrix for the class
+        mu : array, the mean vector for the class
+
+    Returns:
+        probability density: float
+    """
+
+    # Get the number of dimensions
+    d = np.alen(mu)
     e = math.e
     pi = math.pi    
     sigmaDeterminant = np.linalg.det(sigma)
     #print("det: " + str(sigmaDeterminant))
     inverseSigma = np.linalg.inv(sigma)
     #print("inv: " + str(inverseSigma))
-    z = X - mu
+    z = x - mu
     #print("z: " + str(z))    
-    scalar1 = np.dot(z, inverseSigma)
+    leftExp = np.dot(z, inverseSigma)
     #print("scalar")
-    scalar2 = np.dot(scalar1, z.T)
+    rightExp = np.dot(leftExp, z.T)
     #print("scalar: " + str(scalar2))
-    rightSide = e**(-1/2 * scalar2)
+    rightSide = e**(-1/2 * rightExp)
     #print("right: " + str(rightSide))
     leftSide = 1 / (((2 * pi)**(d/2)) * sigmaDeterminant**(1/2))
     #print("left: " + str(leftSide))
-        
-    return N * (leftSide * rightSide)
+    probDensity = (leftSide * rightSide)
 
-# TODO need to confirm this function
-# This function predicts the class label for one feature vector
-# betwen two classes using a Bayesian Classifier
-# (for data that is normally distributed)
-# X - The individual data set to classify
-# Np - Total number of positive samples
-# Cp - Covariance matrix of the positive samples
-# mup - Mean vector of the positive samples
-# CLp - Class label for the positive
-# Nn - Total number of negative samples
-# Cn - Covariance matrix of the negative samples
-# mun - Mean vector of the negative samples
-# CLn - Class label for the negative
-# returns classLabelType - Y for positive, N for negative
-# returns probability
-def getBayesian2ClassLabel(X, Np, Cp, mup, CLp, Nn, Cn, mun, CLn):
-    # Get the number of dimension of X
-    d = len(X)
+    return probDensity
 
-    # Calculate the PDF for the positive and negative data sets
-    pdfp = calculatePDF(X, Np, Cp, mup, d)
-    pdfn = calculatePDF(X, Nn, Cn, mun, d)
+
+def getBayesian2ClassLabel(x, Np, Cp, mup, CLp, Nn, Cn, mun, CLn):
+    """
+    This function predicts the class label for one feature vector
+    betwen two classes using a Bayesian Classifier (for data that
+    is normally distributed).
+
+    Args:
+        x : array, the individual data set to classify
+        Np : int, total number of positive samples
+        Cp : array, covariance matrix of the positive samples
+        mup : array, mean vector of the positive samples
+        CLp : any, class label for the positive
+        Nn : int, total number of negative samples
+        Cn : array, covariance matrix of the negative samples
+        mun : array, mean vector of the negative samples
+        CLn : any, class label for the negative
+    
+    Returns:
+        classLabelType - CLp for positive, CLn for negative
+        probability: float
+    """
+    
+    # Calculate the PDF for the positive and negative
+    probp = Np * calculatePDF(x, Cp, mup)
+    probn = Nn * calculatePDF(x, Cn, mun)
 
     # Predict the class labels and compute the posterior probability
-    if pdfp > pdfn:
+    if probp > probn:
         classLabel = CLp
-        probability = pdfp / (pdfp + pdfn)
-    elif pdfn > pdfp:
+        probability = probp / (probp + probn)
+    elif probn > probp:
         classLabel = CLn
-        probability = pdfn / (pdfn + pdfp)
+        probability = probn / (probn + probp)
     else:
         classLabel = "Indeterminant"
         probability = "Nan"
 
     return classLabel, probability
 
-# TODO need to confirm this function
-# This function computes the classification accuracy of a Bayesian
-# classifier for two classes
-# X - the testing data set
-# T - the class labels
-# V - the eigenvalues of the covariance matrix
-def getBayesianAccuracy(X, T, V):
+
+def getBayesAccuracy(X, T, mu, V):
+    """
+    This function computes the classification accuracy of a Bayesian
+    classifier for a data set with two classes.
+
+    Args:
+        X : array, the data set
+        T : array, the class labels
+        V : array, the eigenvalues of the covariance matrix
+
+    Returns:
+        accuracy : float
+    """
+        
     correct = 0
     incorrect = 0
-    mu = np.mean(X)
 
     for i in range(len(X)):
         x = X[i]
         z = x - mu
-
-        P = np.dot(z, V.T)
-        BLabel = getBayesian2ClassLabel(P, Np, Cp, mup, "Y", Nn, Cn, mun, "N")
+        p = np.dot(z, V.T)
+        BLabel = getBayesian2ClassLabel(p, Np, Cp, mup, "Y", Nn, Cn, mun, "N")
                 
         if(BLabel[0] == T[i]):
+            correct = correct + 1
+        else:
+            incorrect = incorrect + 1
+
+    accuracy = correct / (correct + incorrect)
+    return accuracy
+
+
+def build2DHistogramClassifier(X, Y, T, B, xmin, xmax, ymin, ymax, CLp, CLn):
+    """
+    This function builds histogram data for a 2 class data set.
+    
+    Args:
+        X : array, the x value
+        Y : array, the y value
+        T : array, the class labels
+        B : int, the number of bins
+        xmin : float, the minimum x value of the data set
+        xmax : float, the maxiumum x value of the data set
+        ymin : float, the minimum y value of the data set
+        ymax : float, the maxiumum y value of the data set
+        CLp : any, the postive class label
+        CLn : any, the negative class label
+
+    Returns:
+        Hp : array, the positive histogram data
+        Hn : array, the negative histogram data
+
+    Raises:
+        ValueError: Occurs when a class label does not match the data (CLp, CLn)
+    """
+    
+    Hp = np.zeros((B, B)).astype('int32')
+    Hn = np.zeros((B, B)).astype('int32')
+    He = False
+
+    rowIndices = (np.round(((B-1)*(X-xmin)/(xmax-xmin)))).astype('int32')
+    columnIndices = (np.round(((B-1)*(Y-ymin)/(ymax-ymin)))).astype('int32')
+    for i, r in enumerate(rowIndices):
+        c = columnIndices[i]
+        if T[i] == CLp:
+            Hp[r, c] += 1
+        elif T[i] == CLn:
+            Hn[r, c] += 1
+        else:
+            raise ValueError("A class label did not match.")
+
+    return [Hp, Hn]
+
+
+def getHistogramCount(X, Y, xmin, xmax, ymin, ymax, bins, Hp, Hn):
+    """
+    This function finds the histogram count for each bin.
+    
+    Args:
+        X : array, the x values
+        Y : array, the y values
+        xmin : float, min value of x
+        xmax : float, max value of x
+        ymin : float, min value of y
+        ymax : float, max vaule of y
+        bins : int, number of bins
+        Hp : array, the positive class histogram data
+        Hn : array, the negative class histogram data
+
+    Returns:
+        counts : array_int, a count of the positive and negative
+    """
+    
+    row = (np.round(((bins-1)*(X-xmin)/(xmax-xmin)))).astype('int32')
+    col = (np.round(((bins-1)*(Y-ymin)/(ymax-ymin)))).astype('int32')    
+    counts = Hp[row, col], Hn[row, col]
+    return counts
+
+
+def getHistlabel(X, Y, xmin, xmax, ymin, ymax, bins, Hp, Hn, CLp, CLn):
+    """
+    # This function gets the label and probability for a histogram
+    # X - the x value
+    # Y - the y value
+    # xmin - min value in x
+    # xmax - max value in x
+    # ymin - min value in y
+    # ymax - max value in y
+    # bins - number of bins
+    # Hp - positive class histogram data
+    # Hn - negative class histogram data
+    # CLp - the positive class label
+    # CLn - the negative class label
+    """
+    
+    counts = getHistogramCount(X, Y, xmin, xmax, ymin, ymax, bins, Hp, Hn)
+    HpCount = counts[0]
+    HnCount = counts[1]
+
+    if HpCount > HnCount:
+        Hlabel = CLp
+        probability = HpCount / (HpCount + HnCount)
+    elif HnCount > HpCount:
+        Hlabel = CLn
+        probability = HnCount / (HpCount + HnCount)
+    else:
+        Hlabel = "Indeterminant"
+        probability = "Nan"
+
+    return Hlabel, probability
+
+
+def get2DHistAccuracy(X, T, mu, V, xmin, xmax, ymin, ymax, bins, Hp, Hn, CLp, CLn):
+    """
+    # This function calculates the accurcay of a 2D histogram classifier
+    # X - the 2D data set
+    # T - the class set
+    # mu - the mean vector
+    # V - the eigenvectors
+    # xmin - the min value of x
+    # xmax - the max value of x
+    # ymin - the min value of y
+    # ymax - the max value of y
+    # bins - the number of bins
+    # Hp - the positive class histogram data
+    # Hn - the negative class histogram data
+    # CLp - the positive class label
+    # CLn - the negative class label    
+    """
+    
+    correct = 0
+    incorrect = 0
+
+    for i in range(len(X)):
+        x = X[i]
+        z = x - mu
+        p = np.dot(z, V.T)
+        Hlabel = getHistlabel(p[0], p[1], xmin, xmax, ymin, ymax, bins, Hp, Hn, CLp, CLn)
+                
+        if(Hlabel[0] == T[i]):
             correct = correct + 1
         else:
             incorrect = incorrect + 1
@@ -148,7 +303,7 @@ plt.grid(True)
 plt.show()
 
 # Get the mean of the training data
-mu_train = np.mean(Xtrain)
+mu_train = np.mean(Xtrain, axis=0)
 print("Mean of training data, mu_train")
 print(mu_train)
 print(mu_train.shape)
@@ -165,22 +320,49 @@ pca.fit(Xtrain)
 
 # Get the first two eigenvectors of the covariance matrix
 V12 = pca.components_
-print("First 2 eigenvectors, v12:")
+print("First 2 eigenvectors, V12:")
 print(V12)
 print(V12.shape)
 
-# Get the first two principal components
-p12 = pca.fit_transform(Xtrain)
+# Get the first two principal components with sklearn
+pca12 = PCA(n_components=2)
+p12 = pca12.fit_transform(Xtrain)
 print("First 2 principal components, p12:")
 print(p12)
 print(p12.shape)
 
+r12 = np.dot(p12, V12)
+print("r12:")
+print(r12)
+
+xrec = r12 + mu_train
+print("xrec:")
+print(xrec)
+
 # Draw a plot of the data
-plt.scatter(p12[:, 0], p12[:, 1])
-plt.show()
+#plt.scatter(p12[:, 0], p12[:, 1])
+#plt.show()
 drawScatter(p12, TtrainSmile, "N", "Y", "Scatter plot for classification of smiling picture(Green)\n or not smiling picture(Red)\n", "P1", "P2")
 drawScatter(p12, TtrainBlink, "N", "Y", "Scatter plot for classification of not blinking picture(Green)\n or blinking picture(Red)\n", "P1", "P2")
 drawScatter(p12, TtrainGood, "N", "Y", "Scatter plot for classification of good picture(Green)\n or bad picture(Red)\n", "P1", "P2")
+
+# Load the positive and negative testing data
+Xtestp = Xtest[TtestGood=="Y"]
+Xtestn = Xtest[TtestGood=="N"]
+print("Test data shapes:")
+print(Xtestp.shape)
+print(Xtestn.shape)
+
+# Get the recovered data sk learn
+Xrec = pca.inverse_transform(p12)
+
+# Show image of the original and recovered images
+vectortoimg(Xtrain[12])
+vectortoimg(Xrec[12])
+vectortoimg(xrec[12])
+
+
+# -------- Bayesian Classifier --------
 
 # Count total number of samples for the positive and negative
 # classes
@@ -222,43 +404,50 @@ print("Cp:")
 print(Cp)
 print(Cp.shape)
 
-# Load the positive and negative testing data
-Xtestp = Xtest[TtestGood=="Y"]
-Xtestn = Xtest[TtestGood=="N"]
-print(Xtestp.shape)
-print(Xtestn.shape)
+# Compute the Bayesian accuracy for 2 components
+trainBayesAccuracy = getBayesAccuracy(Xtrain, TtrainGood, mu_train, V12)
+print("Training Bayesian Accuracy:")
+print(trainBayesAccuracy)
 
-mu_test = np.mean(Xtest)
-
-# Select random images from test data to display, 
-# one from positive class and one from negative class
-xp = Xtestp[8]
-xn = Xtestn[8]
-# Display the images
-vectortoimg(xp)
-vectortoimg(xn)
-
-# TODO not correct needs confirmation
-""" mup = np.mean(xp)
-mun = np.mean(xn)
-
-zp = xp - mup
-pp = np.dot(zp, V12.T)
-rp = np.dot(pp, V12)
-xrecp = rp + mup
-
-zn = xn - mun
-pn = np.dot(zn, V12.T)
-rn = np.dot(pn, V12)
-xrecn = rn + mun """
-
-Xrec = pca.inverse_transform(p12)
-
-# Show image of the original and recovered images
-vectortoimg(Xtrain[12])
-vectortoimg(Xrec[12])
+testBayesAccuracy = getBayesAccuracy(Xtest, TtestGood, mu_train, V12)
+print("Testing Bayesian Accuracy:")
+print(testBayesAccuracy)
 
 
-bayesianAccuracy= getBayesianAccuracy(Xtestp, TtestGood, V12)
-print("Bayesian Accuracy:")
-print(bayesianAccuracy)
+# ---- Histogram Classifier ----
+
+# Use Sturges rule to get number of bins
+# Number of samples
+Ntrain = len(Xtrain)
+# Number of bins
+bins = int(math.log(Ntrain, 2) + 1)
+print("Sturges bins:")
+print(bins)
+
+# Get the min and max of the principal components
+p1min = np.amin(p12[:, 0])
+p1max = np.amax(p12[:, 0])
+p2min = np.amin(p12[:, 1])
+p2max = np.amax(p12[:, 1])
+print("P1 min and max:")
+print([p1min, p1max])
+print("P2 min and max:")
+print([p2min, p2max])
+
+# Build the histograms using the training data
+Hp, Hn = build2DHistogramClassifier(p12[:, 0], p12[:, 1], TtrainGood, bins, p1min, p1max, p2min, p2max, "Y", "N")
+print("Histogram data")
+print("Positive class histogram:")
+print(Hp)
+print("Negative class histogram:")
+print(Hn)
+
+# Calculate the histogram classification accuracy of the training data
+trainHistAccuracy = get2DHistAccuracy(Xtrain, TtrainGood, mu_train, V12, p1min, p1max, p2min, p2max, bins, Hp, Hn, "Y", "N")
+print("Training Histogram accuracy:")
+print(trainHistAccuracy)
+
+# Calculate histogram classification accuracy of the test data
+testHistAccuracy = get2DHistAccuracy(Xtest, TtestGood, mu_train, V12, p1min, p1max, p2min, p2max, bins, Hp, Hn, "Y", "N")
+print("Testing Histogram accuracy:")
+print(testHistAccuracy)
