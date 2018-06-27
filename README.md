@@ -8,12 +8,12 @@ Principal component analysis is used to decrease the number of dimensions.  When
 Logistic regression is also used while keeping 100 components.
 
 ## Setup
-Install python 3
-Install any packages as necessary such as numpy, matplotlib, and sklearn
-Download the image files from the AT&T Laboratories Cambridge website or from the repository
-Download the class labels excel sheet from the repository.
-Change the image file path to the path/folder where you stored the images on your computer
-Change the class labels file path to the path where you stored your class labels excel sheet
+1. Install python 3
+2. Install any packages as necessary such as numpy, matplotlib, and sklearn
+3. Download the image files from the AT&T Laboratories Cambridge website or from the repository
+4. Download the class labels excel sheet from the repository.
+5. Change the image file path to the path/folder where you stored the images on your computer
+6. Change the class labels file path to the path where you stored your class labels excel sheet
 
 
 ## Running the program
