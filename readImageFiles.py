@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 # This function changes vector data into an image plot
 # v - the vector data
 # show - boolean whether to show the plot or not
-def vectortoimg(v,show=True):
+def vectortoimg(v,show=True, title=""):
+    plt.title(title)
     plt.imshow(v.reshape(112, 92),interpolation='None', cmap='gray')
     plt.axis('off')
     if show:
